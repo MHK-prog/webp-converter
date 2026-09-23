@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>تبدیل عکس به WebP</title>
+  
+  <!-- تنظیمات PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0d0d0d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif; }
+    
+    body {
+      background: #0d0d0d;
+      color: #e5e5e5;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .card {
+      background: #181818;
+      border: 1px solid #2a2a2a;
+      padding: 40px 30px;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(255, 0, 0, 0.05);
+      width: 100%;
+      max-width: 420px;
+      text-align: center;
+    }
+
+    h3 {
+      color: #ff3344;
+      margin-bottom: 25px;
+      font-size: 1.3rem;
+      letter-spacing: -0.5px;
+    }
+
+    .drop-zone {
+      border: 2px dashed #ff3344;
+      border-radius: 12px;
+      padding: 35px 20px;
+      background: #201315;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      display: block;
+    }
+
+    .drop-zone:hover {
+      background: #2b1518;
+      border-color: #ff4d5e;
+      box-shadow: 0 0 15px rgba(255, 51, 68, 0.25);
+    }
+
+    .drop-zone span {
+      display: block;
+      color: #f1f1f1;
+      font-size: 0.95rem;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    .btn-download {
+      display: inline-block;
+      margin-top: 25px;
+      padding: 12px 28px;
+      background: #ff1a30;
+      color: #fff;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: bold;
+      box-shadow: 0 4px 20px rgba(255, 26, 48, 0.4);
+      transition: all 0.2s ease;
+    }
+
+    .btn-download:hover {
+      background: #e60017;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 25px rgba(255, 26, 48, 0.6);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h3>تبدیل عکس به WebP</h3>
+    
+    <label class="drop-zone" for="fileInput">
+      <span>📸 برای انتخاب عکس کلیک کنید</span>
+      <input type="file" id="fileInput" accept="image/png, image/jpeg">
+    </label>
+
+    <a id="downloadLink" class="btn-download" style="display:none;">دانلود فایل WebP</a>
+  </div>
+
+  <script>
+    // فعال‌سازی آفلاین و وب‌اپلیکیشن (PWA)
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js');
+    }
+
+    const fileInput = document.getElementById('fileInput');
+    const downloadLink = document.getElementById('downloadLink');
+
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const img = new Image();
+      img.src = URL.createObjectURL(file);
+
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+
+        canvas.toBlob((blob) => {
+          const webpUrl = URL.createObjectURL(blob);
+          const newFileName = file.name.replace(/\.[^.]+$/, '') + '.webp';
+
+          downloadLink.href = webpUrl;
+          downloadLink.download = newFileName;
+          downloadLink.textContent = `دانلود ${newFileName}`;
+          downloadLink.style.display = 'inline-block';
+        }, 'image/webp', 0.8);
+      };
+    });
+  </script>
+
+</body>
+</html>
