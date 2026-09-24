@@ -3,13 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>تبدیل عکس به WebP</title>
+  <title>تبدیل دسته‌ای عکس به WebP</title>
   
-  <!-- تنظیمات PWA -->
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0d0d0d">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <!-- کتابخونه سبک برای ساخت فایل زیپ درون مرورگر -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif; }
@@ -27,35 +29,33 @@
     .card {
       background: #181818;
       border: 1px solid #2a2a2a;
-      padding: 40px 30px;
+      padding: 30px 24px;
       border-radius: 16px;
       box-shadow: 0 10px 30px rgba(255, 0, 0, 0.05);
       width: 100%;
-      max-width: 420px;
+      max-width: 480px;
       text-align: center;
     }
 
     h3 {
       color: #ff3344;
-      margin-bottom: 25px;
+      margin-bottom: 20px;
       font-size: 1.3rem;
-      letter-spacing: -0.5px;
     }
 
     .drop-zone {
       border: 2px dashed #ff3344;
       border-radius: 12px;
-      padding: 35px 20px;
+      padding: 30px 20px;
       background: #201315;
       cursor: pointer;
-      transition: all 0.25s ease;
       display: block;
+      transition: all 0.2s ease;
     }
 
     .drop-zone:hover {
       background: #2b1518;
       border-color: #ff4d5e;
-      box-shadow: 0 0 15px rgba(255, 51, 68, 0.25);
     }
 
     .drop-zone span {
@@ -68,73 +68,187 @@
       display: none;
     }
 
-    .btn-download {
-      display: inline-block;
-      margin-top: 25px;
-      padding: 12px 28px;
+    #status {
+      margin-top: 15px;
+      font-size: 0.9rem;
+      color: #aaa;
+    }
+
+    .btn-zip {
+      display: none;
+      width: 100%;
+      margin-top: 15px;
+      padding: 12px;
       background: #ff1a30;
       color: #fff;
-      text-decoration: none;
+      border: none;
       border-radius: 8px;
       font-weight: bold;
-      box-shadow: 0 4px 20px rgba(255, 26, 48, 0.4);
+      font-size: 0.95rem;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(255, 26, 48, 0.3);
       transition: all 0.2s ease;
     }
 
-    .btn-download:hover {
+    .btn-zip:hover {
       background: #e60017;
-      transform: translateY(-2px);
-      box-shadow: 0 6px 25px rgba(255, 26, 48, 0.6);
+      box-shadow: 0 6px 20px rgba(255, 26, 48, 0.5);
+    }
+
+    .file-list {
+      margin-top: 15px;
+      max-height: 220px;
+      overflow-y: auto;
+      text-align: right;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .file-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #222;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+    }
+
+    .file-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 65%;
+      direction: ltr;
+      text-align: right;
+    }
+
+    .btn-dl {
+      background: #333;
+      color: #fff;
+      text-decoration: none;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      border: 1px solid #444;
+      transition: background 0.2s;
+    }
+
+    .btn-dl:hover {
+      background: #444;
     }
   </style>
 </head>
 <body>
 
   <div class="card">
-    <h3>تبدیل عکس به WebP</h3>
+    <h3>تبدیل دسته‌ای به WebP</h3>
     
     <label class="drop-zone" for="fileInput">
-      <span>📸 برای انتخاب عکس کلیک کنید</span>
-      <input type="file" id="fileInput" accept="image/png, image/jpeg">
+      <span>📸 انتخاب عکس‌ها (JPG، PNG و...)</span>
+      <input type="file" id="fileInput" accept="image/*" multiple>
     </label>
 
-    <a id="downloadLink" class="btn-download" style="display:none;">دانلود فایل WebP</a>
+    <div id="status"></div>
+    
+    <!-- دکمه دانلود زیپ -->
+    <button id="zipBtn" class="btn-zip">📦 دانلود همه در یک فایل زیپ</button>
+    
+    <div id="fileList" class="file-list"></div>
   </div>
 
   <script>
-    // فعال‌سازی آفلاین و وب‌اپلیکیشن (PWA)
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js');
     }
 
     const fileInput = document.getElementById('fileInput');
-    const downloadLink = document.getElementById('downloadLink');
+    const statusText = document.getElementById('status');
+    const fileList = document.getElementById('fileList');
+    const zipBtn = document.getElementById('zipBtn');
 
-    fileInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
+    let convertedBlobs = []; // نگه‌داری فایل‌ها برای ساخت زیپ
 
-      const img = new Image();
-      img.src = URL.createObjectURL(file);
+    function convertToWebP(file) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        const srcUrl = URL.createObjectURL(file);
 
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
 
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
 
-        canvas.toBlob((blob) => {
-          const webpUrl = URL.createObjectURL(blob);
-          const newFileName = file.name.replace(/\.[^.]+$/, '') + '.webp';
+          canvas.toBlob((blob) => {
+            URL.revokeObjectURL(srcUrl);
+            const webpUrl = URL.createObjectURL(blob);
+            const newName = file.name.replace(/\.[^.]+$/, '') + '.webp';
+            resolve({ name: newName, url: webpUrl, blob: blob });
+          }, 'image/webp', 0.8);
+        };
 
-          downloadLink.href = webpUrl;
-          downloadLink.download = newFileName;
-          downloadLink.textContent = `دانلود ${newFileName}`;
-          downloadLink.style.display = 'inline-block';
-        }, 'image/webp', 0.8);
-      };
+        img.src = srcUrl;
+      });
+    }
+
+    fileInput.addEventListener('change', async (e) => {
+      const files = Array.from(e.target.files);
+      if (!files.length) return;
+
+      fileList.innerHTML = '';
+      zipBtn.style.display = 'none';
+      statusText.textContent = `در حال پردازش ${files.length} تصویر...`;
+
+      // پردازش موازی
+      convertedBlobs = await Promise.all(files.map(convertToWebP));
+
+      statusText.textContent = `✅ ${convertedBlobs.length} عکس تبدیل شدند:`;
+
+      // نمایش دکمه زیپ در صورت وجود فایل
+      if (convertedBlobs.length > 0) {
+        zipBtn.style.display = 'block';
+      }
+
+      // ساخت لیست برای دانلود تکی
+      convertedBlobs.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'file-item';
+        row.innerHTML = `
+          <span class="file-name" title="${item.name}">${item.name}</span>
+          <a class="btn-dl" href="${item.url}" download="${item.name}">دانلود</a>
+        `;
+        fileList.appendChild(row);
+      });
+
+      fileInput.value = '';
+    });
+
+    // رویداد ساخت و دانلود فایل ZIP
+    zipBtn.addEventListener('click', async () => {
+      if (!convertedBlobs.length) return;
+
+      zipBtn.textContent = 'در حال زیپ کردن...';
+      zipBtn.disabled = true;
+
+      const zip = new JSZip();
+      convertedBlobs.forEach(item => {
+        zip.file(item.name, item.blob);
+      });
+
+      const zipContent = await zip.generateAsync({ type: 'blob' });
+      const zipUrl = URL.createObjectURL(zipContent);
+
+      const link = document.createElement('a');
+      link.href = zipUrl;
+      link.download = 'images-webp.zip';
+      link.click();
+
+      zipBtn.textContent = '📦 دانلود همه در یک فایل زیپ';
+      zipBtn.disabled = false;
     });
   </script>
 
