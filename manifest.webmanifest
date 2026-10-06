@@ -1,7 +1,7 @@
 {
   "name": "مبدل سریع WebP",
   "short_name": "WebP Tool",
-  "start_url": "index.html",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#0d0d0d",
   "theme_color": "#ff3344",
